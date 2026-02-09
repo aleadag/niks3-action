@@ -104,6 +104,16 @@ pnpm run format # Formats code
 pnpm run lint   # Lints code
 ```
 
+### Release Process
+
+The project uses a GitHub Action to automatically build and tag releases.
+1.  Draft a new release on GitHub.
+2.  Publish the release.
+3.  The `release.yml` workflow will:
+    *   Check out the tag.
+    *   Build the project (generate `dist/index.js`).
+    *   Commit the built `dist/` folder back to the tag.
+
 ### Project Structure
 
 *   `action.yml`: Defines the GitHub Action metadata (inputs, runs).

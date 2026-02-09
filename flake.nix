@@ -7,6 +7,7 @@
     { self, ... }@inputs:
 
     let
+      nodeVersion = builtins.replaceStrings [ "\n" ] [ "" ] (builtins.readFile ./.node-version);
       supportedSystems = [
         "x86_64-linux"
         "aarch64-linux"
@@ -27,7 +28,7 @@
     in
     {
       overlays.default = final: prev: {
-        nodejs = prev.nodejs;
+        nodejs = prev."nodejs_${nodeVersion}";
       };
 
       devShells = forEachSupportedSystem (
