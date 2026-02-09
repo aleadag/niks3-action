@@ -1,8 +1,7 @@
 {
 	"name": "niks3-action",
-	"version": "1.0.0",
-	"description": "",
-	"main": "index.js",
+	"description": "GitHub Action to setup niks3 and cache Nix derivations",
+	"main": "dist/index.js",
 	"scripts": {
 		"build": "esbuild src/index.ts --outdir=dist --platform=node --format=cjs --bundle --minify-whitespace --minify-syntax",
 		"format": "biome format --write .",
