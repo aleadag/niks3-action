@@ -1,0 +1,33 @@
+name: "niks3-action"
+description: "Setup niks3 and cache Nix derivations"
+author: "Ticos"
+
+inputs:
+  endpoint:
+    description: "Niks3 server URL"
+    required: true
+  auth-token:
+    description: "Niks3 authentication token"
+    required: false
+  use-oidc:
+    description: "Use GitHub Actions OIDC token for authentication"
+    required: false
+    default: "false"
+  oidc-audience:
+    description: "Audience for the OIDC token"
+    required: false
+  aws-access-key-id:
+    description: "AWS Access Key ID for Nix S3 substituter"
+    required: false
+  aws-secret-access-key:
+    description: "AWS Secret Access Key for Nix S3 substituter"
+    required: false
+  skip-push:
+    description: "Disable pushing to the cache automatically"
+    required: false
+    default: "false"
+
+runs:
+  using: "node20"
+  main: "dist/index.js"
+  post: "dist/index.js"
