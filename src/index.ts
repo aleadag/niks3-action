@@ -1,9 +1,7 @@
 import * as core from "@actions/core";
 import { configureAwsCredentials } from "./aws";
 import { install, isInstalled } from "./stages/install";
-import { push } from "./stages/push";
 import { runRefresher } from "./stages/refresher";
-import { saveStorePaths } from "./utils";
 
 const isPost = !!core.getState("isPost");
 const isRefresher = process.env.NIKS3_MODE === "refresher";
