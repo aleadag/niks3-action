@@ -33,7 +33,7 @@ A GitHub Action to setup [niks3](https://github.com/Mic92/niks3) and manage cach
 steps:
   - uses: actions/checkout@v4
   - uses: cachix/install-nix-action@v27
-  - uses: aleadag/niks3-action@v1
+  - uses: aleadag/niks3-action@v0
     with:
       endpoint: "https://my-niks3-server.com"
       auth-token: "${{ secrets.NIKS3_TOKEN }}"
@@ -51,7 +51,7 @@ permissions:
 steps:
   - uses: actions/checkout@v4
   - uses: cachix/install-nix-action@v27
-  - uses: aleadag/niks3-action@v1
+  - uses: aleadag/niks3-action@v0
     with:
       endpoint: "https://my-niks3-server.com"
       use-oidc: true
@@ -68,7 +68,7 @@ steps:
     with:
       extra_nix_config: |
         extra-substituters = s3://nix-cache?endpoint=...
-  - uses: aleadag/niks3-action@v1
+  - uses: aleadag/niks3-action@v0
     with:
       endpoint: "https://my-niks3-server.com"
       use-oidc: true
