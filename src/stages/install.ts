@@ -1,5 +1,4 @@
-import { spawn } from "node:child_process";
-import { open, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import * as core from "@actions/core";
 import { exec } from "@actions/exec";
@@ -34,32 +33,63 @@ export const install = async () => {
       const tmpDir = process.env.RUNNER_TEMP || "/tmp";
       const tokenFile = path.join(tmpDir, "niks3-token");
       const hookScriptPath = path.join(tmpDir, "niks3-hook.sh");
-      const logFile = path.join(tmpDir, "niks3-refresher.log");
 
-      // 1. Start Refresher
-      const out = await open(logFile, "a");
-      const err = await open(logFile, "a");
+      // We need absolute path to the node executable and the script
+      const nodePath = process.execPath;
+      const scriptPath = __filename;
 
-      const refresher = spawn(process.execPath, [__filename], {
-        env: {
-          ...process.env,
-          NIKS3_MODE: "refresher",
-          NIKS3_TOKEN_FILE: tokenFile,
-          NIKS3_OIDC_AUDIENCE: audience,
-        },
-        detached: true,
-        stdio: ["ignore", out.fd, err.fd],
-      });
-      refresher.unref();
-      core.info(`Refresher started (PID: ${refresher.pid})`);
+      // 1. Create Systemd Service for Refresher
+      if (process.platform === "linux") {
+        const serviceContent = `[Unit]
+Description=Niks3 Token Refresher
+After=network.target
+
+[Service]
+ExecStart=${nodePath} ${scriptPath}
+Environment="NIKS3_MODE=refresher"
+Environment="NIKS3_TOKEN_FILE=${tokenFile}"
+Environment="NIKS3_OIDC_AUDIENCE=${audience}"
+# Pass through necessary GitHub Actions env vars for OIDC
+Environment="ACTIONS_ID_TOKEN_REQUEST_TOKEN=${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN || ""}"
+Environment="ACTIONS_ID_TOKEN_REQUEST_URL=${process.env.ACTIONS_ID_TOKEN_REQUEST_URL || ""}"
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+`;
+        const servicePath = path.join(tmpDir, "niks3-refresher.service");
+        await writeFile(servicePath, serviceContent);
+
+        core.info("Installing refresher systemd service...");
+        await exec("sudo", [
+          "mv",
+          servicePath,
+          "/etc/systemd/system/niks3-refresher.service",
+        ]);
+        await exec("sudo", ["systemctl", "daemon-reload"]);
+        await exec("sudo", ["systemctl", "start", "niks3-refresher"]);
+
+        // Verify it started
+        await exec("sudo", ["systemctl", "status", "niks3-refresher"], {
+          ignoreReturnCode: true,
+        });
+      } else {
+        core.warning(
+          "OIDC refresher daemon only supported on Linux (systemd). Uploads may fail if token expires.",
+        );
+      }
 
       // 2. Create Hook Script
       // Note: $OUT_PATHS is a space-separated list of paths passed by Nix
+      const hookLogFile = path.join(tmpDir, "niks3-hook.log");
       const hookScript = `#!/bin/bash
 set -e
+exec >> "${hookLogFile}" 2>&1
 export NIKS3_AUTH_TOKEN_FILE="${tokenFile}"
-echo "Uploading paths to niks3..."
-echo $OUT_PATHS | xargs -n 1 | ${niks3Path}/niks3 push --server-url "${endpoint}" --max-concurrent-uploads ${core.getInput("max-concurrent-uploads")}
+echo "--- $(date) ---"
+echo "Uploading: $OUT_PATHS"
+${niks3Path}/niks3 push --server-url "${endpoint}" --max-concurrent-uploads ${core.getInput("max-concurrent-uploads")} $OUT_PATHS
 `;
       await writeFile(hookScriptPath, hookScript, { mode: 0o755 });
       core.info(`Hook script created at ${hookScriptPath}`);
