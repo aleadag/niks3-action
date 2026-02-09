@@ -26,6 +26,7 @@ The action operates in two phases:
 | `oidc-audience` | Custom audience for the OIDC token. Defaults to `endpoint` if not set. | No | N/A |
 | `aws-access-key-id` | AWS Access Key ID for Nix S3 substituter. | No | N/A |
 | `aws-secret-access-key` | AWS Secret Access Key for Nix S3 substituter. | No | N/A |
+| `max-concurrent-uploads` | Maximum concurrent uploads. | No | `30` |
 | `skip-push` | If `true`, disables pushing to the cache. | No | `false` |
 
 ### Example Workflow (Standard)

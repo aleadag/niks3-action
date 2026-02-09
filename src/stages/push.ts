@@ -15,6 +15,7 @@ export const push = async () => {
     let authToken = core.getInput("auth-token");
     const useOidc = core.getBooleanInput("use-oidc");
     const audience = core.getInput("oidc-audience") || endpoint;
+    const maxConcurrentUploads = core.getInput("max-concurrent-uploads");
 
     // Helper to get or refresh token
     let tokenLastFetched = 0;
@@ -62,7 +63,10 @@ export const push = async () => {
       core.info(`Pushing ${pushPaths.length} new paths...`);
 
       // Batching to prevent command line length issues and handle token expiry
-      const BATCH_SIZE = 50;
+      // Ensure batch size is at least enough to saturate the concurrent uploads
+      const concurrency = Number.parseInt(maxConcurrentUploads || "30", 10);
+      const BATCH_SIZE = Math.max(50, concurrency * 2);
+
       for (let i = 0; i < pushPaths.length; i += BATCH_SIZE) {
         const batch = pushPaths.slice(i, i + BATCH_SIZE);
         const currentToken = await getAuthToken();
@@ -71,14 +75,21 @@ export const push = async () => {
           `Pushing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(pushPaths.length / BATCH_SIZE)} (${batch.length} paths)...`,
         );
 
-        await exec("niks3", [
+        const args = [
           "push",
           "--server-url",
           endpoint,
           "--auth-token",
           currentToken || "",
-          ...batch,
-        ]);
+        ];
+
+        if (maxConcurrentUploads) {
+          args.push("--max-concurrent-uploads", maxConcurrentUploads);
+        }
+
+        args.push(...batch);
+
+        await exec("niks3", args);
       }
     }
   } catch (error) {

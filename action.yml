@@ -22,6 +22,10 @@ inputs:
   aws-secret-access-key:
     description: "AWS Secret Access Key for Nix S3 substituter"
     required: false
+  max-concurrent-uploads:
+    description: "Maximum concurrent uploads"
+    required: false
+    default: "30"
   skip-push:
     description: "Disable pushing to the cache automatically"
     required: false
