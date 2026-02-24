@@ -86,6 +86,7 @@ WantedBy=multi-user.target
       const hookScript = `#!/bin/bash
 set -e
 exec >> "${hookLogFile}" 2>&1
+export PATH="/nix/var/nix/profiles/default/bin:$PATH"
 export NIKS3_AUTH_TOKEN_FILE="${tokenFile}"
 echo "--- $(date) ---"
 echo "Uploading: $OUT_PATHS"
