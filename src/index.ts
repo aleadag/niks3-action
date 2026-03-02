@@ -2,6 +2,7 @@ import * as core from "@actions/core";
 import { exec } from "@actions/exec";
 import { configureAwsCredentials } from "./aws";
 import { install, isInstalled } from "./stages/install";
+import { pushFlakeInputs } from "./stages/push-inputs";
 import { runRefresher } from "./stages/refresher";
 
 const isPost = !!core.getState("isPost");
@@ -26,6 +27,8 @@ const main = async () => {
       } else {
         await install();
       }
+
+      await pushFlakeInputs();
     } catch (error) {
       core.setFailed(`Action failed: ${error}`);
     }

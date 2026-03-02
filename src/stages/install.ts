@@ -24,23 +24,29 @@ export const install = async () => {
 
     core.info("niks3 installed and added to PATH");
 
+    const useOidc = core.getBooleanInput("use-oidc");
+    const authToken = core.getInput("auth-token");
+
     // --- Setup Refresher & Hook ---
-    if (core.getBooleanInput("use-oidc")) {
-      core.info("Setting up OIDC token refresher and post-build hook...");
+    if (useOidc || authToken) {
+      core.info("Setting up post-build hook...");
 
       const endpoint = core.getInput("endpoint");
-      const audience = core.getInput("oidc-audience") || endpoint;
       const tmpDir = process.env.RUNNER_TEMP || "/tmp";
       const tokenFile = path.join(tmpDir, "niks3-token");
       const hookScriptPath = path.join(tmpDir, "niks3-hook.sh");
 
-      // We need absolute path to the node executable and the script
-      const nodePath = process.execPath;
-      const scriptPath = __filename;
+      if (useOidc) {
+        core.info("Setting up OIDC token refresher...");
+        const audience = core.getInput("oidc-audience") || endpoint;
 
-      // 1. Create Systemd Service for Refresher
-      if (process.platform === "linux") {
-        const serviceContent = `[Unit]
+        // We need absolute path to the node executable and the script
+        const nodePath = process.execPath;
+        const scriptPath = __filename;
+
+        // 1. Create Systemd Service for Refresher
+        if (process.platform === "linux") {
+          const serviceContent = `[Unit]
 Description=Niks3 Token Refresher
 After=network.target
 
@@ -58,26 +64,31 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 `;
-        const servicePath = path.join(tmpDir, "niks3-refresher.service");
-        await writeFile(servicePath, serviceContent);
+          const servicePath = path.join(tmpDir, "niks3-refresher.service");
+          await writeFile(servicePath, serviceContent);
 
-        core.info("Installing refresher systemd service...");
-        await exec("sudo", [
-          "mv",
-          servicePath,
-          "/etc/systemd/system/niks3-refresher.service",
-        ]);
-        await exec("sudo", ["systemctl", "daemon-reload"]);
-        await exec("sudo", ["systemctl", "start", "niks3-refresher"]);
+          core.info("Installing refresher systemd service...");
+          await exec("sudo", [
+            "mv",
+            servicePath,
+            "/etc/systemd/system/niks3-refresher.service",
+          ]);
+          await exec("sudo", ["systemctl", "daemon-reload"]);
+          await exec("sudo", ["systemctl", "start", "niks3-refresher"]);
 
-        // Verify it started
-        await exec("sudo", ["systemctl", "status", "niks3-refresher"], {
-          ignoreReturnCode: true,
-        });
-      } else {
-        core.warning(
-          "OIDC refresher daemon only supported on Linux (systemd). Uploads may fail if token expires.",
-        );
+          // Verify it started
+          await exec("sudo", ["systemctl", "status", "niks3-refresher"], {
+            ignoreReturnCode: true,
+          });
+        } else {
+          core.warning(
+            "OIDC refresher daemon only supported on Linux (systemd). Uploads may fail if token expires.",
+          );
+        }
+      } else if (authToken) {
+        // Write static token
+        await writeFile(tokenFile, authToken, { mode: 0o644 });
+        core.info("Wrote static auth token to token file.");
       }
 
       // 2. Create Hook Script

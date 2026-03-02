@@ -25,6 +25,7 @@ A GitHub Action to setup [niks3](https://github.com/Mic92/niks3) and manage cach
 | `aws-secret-access-key` | AWS Secret Access Key for Nix S3 substituter. | No | N/A |
 | `max-concurrent-uploads` | Maximum concurrent uploads. | No | `30` |
 | `skip-push` | If `true`, disables pushing to the cache. | No | `false` |
+| `push-flake-inputs` | If `true`, pushes the current flake's inputs to the cache. | No | `false` |
 
 ### Examples
 
@@ -38,6 +39,7 @@ steps:
     with:
       endpoint: "https://my-niks3-server.com"
       auth-token: "${{ secrets.NIKS3_TOKEN }}"
+      push-flake-inputs: true
 ```
 
 #### OIDC Authentication (Recommended)
@@ -79,16 +81,19 @@ steps:
 
 ## How It Works
 
-The action runs in two phases:
+The action sets up a **post-build-hook** in Nix to automatically upload derivations as they are built.
 
-1.  **Main Phase:**
-    *   **Snapshot:** Takes a snapshot of the current Nix store.
-    *   **Install:** Installs `niks3` (it will be cached in the post phase!).
-    *   **Configure:** Sets up AWS credentials if provided.
-2.  **Post Phase (Runs after job steps):**
-    *   **Diff:** Compares the current Nix store with the initial snapshot.
-    *   **Filter:** Selects new paths (ignoring `.drv` and build locks).
-    *   **Push:** Uploads the new paths to the configured `niks3` endpoint.
+1.  **Installation:**
+    *   Builds and installs `niks3` from source.
+    *   Configures AWS credentials for Nix S3 substituters if provided.
+2.  **Authentication:**
+    *   If **OIDC** is enabled, it starts a background daemon (systemd service) that refreshes GitHub Actions OIDC tokens and writes them to a file accessible by the post-build-hook.
+    *   If an **auth-token** is provided, it writes the static token to the same file.
+3.  **Post-Build Hook:**
+    *   Configures Nix to use a custom shell script as a `post-build-hook`.
+    *   This script runs `niks3 push` for every path Nix builds, using the provided endpoint and authentication token.
+4.  **Flake Inputs (Optional):**
+    *   If `push-flake-inputs` is enabled, it runs `nix flake archive --json` and pushes all inputs to the cache immediately after installation.
 
 ## Development
 

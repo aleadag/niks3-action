@@ -30,6 +30,10 @@ inputs:
     description: "Disable pushing to the cache automatically"
     required: false
     default: "false"
+  push-flake-inputs:
+    description: "Push flake inputs to the cache"
+    required: false
+    default: "false"
 
 runs:
   using: "node24"
