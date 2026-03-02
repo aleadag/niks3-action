@@ -15,14 +15,24 @@ export const isInstalled = async (): Promise<boolean> => {
 export const install = async () => {
   core.startGroup("Install niks3");
   try {
-    // Build niks3 from the provided source or default
-    await exec("nix", ["build", "-o", "niks3", "github:Mic92/niks3"]);
+    // Install niks3 from nixpkgs and get the store path
+    let niks3StorePath = "";
+    await exec("nix", ["build", "--no-link", "--print-out-paths", "nixpkgs#niks3"], {
+      listeners: {
+        stdout: (data: Buffer) => {
+          niks3StorePath += data.toString().trim();
+        },
+      },
+    });
 
-    const cwd = process.cwd();
-    const niks3Path = `${cwd}/niks3/bin`;
-    core.addPath(niks3Path);
+    if (!niks3StorePath) {
+      throw new Error("Failed to get niks3 store path");
+    }
 
-    core.info("niks3 installed and added to PATH");
+    const niks3BinPath = path.join(niks3StorePath, "bin");
+    core.addPath(niks3BinPath);
+
+    core.info(`niks3 installed at ${niks3StorePath} and added to PATH`);
 
     const useOidc = core.getBooleanInput("use-oidc");
     const authToken = core.getInput("auth-token");
@@ -101,7 +111,7 @@ export PATH="/nix/var/nix/profiles/default/bin:$PATH"
 export NIKS3_AUTH_TOKEN_FILE="${tokenFile}"
 echo "--- $(date) ---"
 echo "Uploading: $OUT_PATHS"
-${niks3Path}/niks3 push --server-url "${endpoint}" --max-concurrent-uploads ${core.getInput("max-concurrent-uploads")} $OUT_PATHS
+${niks3BinPath}/niks3 push --server-url "${endpoint}" --max-concurrent-uploads ${core.getInput("max-concurrent-uploads")} $OUT_PATHS
 `;
       await writeFile(hookScriptPath, hookScript, { mode: 0o755 });
       core.info(`Hook script created at ${hookScriptPath}`);

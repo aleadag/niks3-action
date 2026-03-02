@@ -7,7 +7,7 @@ This project is a GitHub Action that installs `niks3` and manages caching for Ni
 The action operates in two phases:
 1.  **Main Phase (`src/stages/install.ts`):**
     *   **Snapshots the current Nix store paths.** (Done before install to allow caching `niks3` itself).
-    *   Installs `niks3` by building it from `github:Mic92/niks3`.
+    *   Installs `niks3` from `nixpkgs`.
     *   Adds `niks3` to the system PATH.
 2.  **Post Phase (`src/stages/push.ts`):**
     *   Calculates the difference between the initial Nix store snapshot and the current state.
