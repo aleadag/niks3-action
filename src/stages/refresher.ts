@@ -23,8 +23,8 @@ export const runRefresher = async () => {
   // Initial refresh
   await refresh();
 
-  // Loop every 4 minutes (240000 ms)
-  setInterval(refresh, 240000);
+  // Loop every 1 minute (60000 ms)
+  setInterval(refresh, 60000);
 
   // Keep process alive
   await new Promise(() => {});
