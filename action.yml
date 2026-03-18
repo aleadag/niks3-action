@@ -30,6 +30,10 @@ inputs:
     description: "Disable pushing to the cache automatically"
     required: false
     default: "false"
+  use-daemon:
+    description: "Use post-build-hook with nix-daemon for pushing (set to false for self-hosted runner as a container)"
+    required: false
+    default: "true"
   push-flake-inputs:
     description: "Push flake inputs to the cache"
     required: false

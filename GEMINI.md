@@ -4,15 +4,23 @@ This project is a GitHub Action that installs `niks3` and manages caching for Ni
 
 ## Overview
 
-The action operates in two phases:
+The action supports two modes:
+
+#### Daemon mode (default, `use-daemon: true`)
 1.  **Main Phase (`src/stages/install.ts`):**
-    *   **Snapshots the current Nix store paths.** (Done before install to allow caching `niks3` itself).
-    *   Installs `niks3` from `nixpkgs`.
-    *   Adds `niks3` to the system PATH.
-2.  **Post Phase (`src/stages/push.ts`):**
-    *   Calculates the difference between the initial Nix store snapshot and the current state.
-    *   Identifies new paths (excluding `.drv` and other temporary files).
-    *   Pushes these new paths to the configured `niks3` endpoint.
+    *   Installs `niks3` from `nixpkgs` and adds it to the system PATH.
+    *   Sets up a post-build-hook and OIDC token refresher (systemd service).
+2.  **Post Phase (`src/index.ts`):**
+    *   Collects logs from the refresher service and hook script.
+    *   Stops the refresher service.
+
+#### Store-scan mode (`use-daemon: false`)
+1.  **Main Phase (`src/stages/store-snapshot.ts`):**
+    *   Captures a snapshot of all store paths under `/nix/store` before the build.
+2.  **Post Phase (`src/stages/push-diff.ts`):**
+    *   Computes the difference between the pre-build snapshot and the current store.
+    *   Validates new paths with `nix path-info`.
+    *   Pushes new paths in batches with OIDC token caching.
 
 ## Usage
 
@@ -28,6 +36,7 @@ The action operates in two phases:
 | `aws-secret-access-key` | AWS Secret Access Key for Nix S3 substituter. | No | N/A |
 | `max-concurrent-uploads` | Maximum concurrent uploads. | No | `30` |
 | `skip-push` | If `true`, disables pushing to the cache. | No | `false` |
+| `use-daemon` | Use post-build-hook with nix-daemon. Set to `false` for environments without systemd. | No | `true` |
 
 ### Example Workflow (Standard)
 
@@ -118,10 +127,14 @@ The project uses a GitHub Action to automatically build and tag releases.
 ### Project Structure
 
 *   `action.yml`: Defines the GitHub Action metadata (inputs, runs).
-*   `src/index.ts`: The main entry point. Handles the logic to distinguish between the "main" run and the "post" run.
-*   `src/stages/install.ts`: Logic for installing `niks3`.
-*   `src/stages/push.ts`: Logic for calculating store diffs and pushing to the cache.
-*   `src/utils.ts`: Utility functions (likely for store path handling).
+*   `src/index.ts`: The main entry point. Handles the logic to distinguish between the "main" run and the "post" run, and branches on `use-daemon`.
+*   `src/aws.ts`: AWS credential configuration for Nix S3 substituters.
+*   `src/store.ts`: Lists valid store paths under `/nix/store`.
+*   `src/stages/install.ts`: Logic for installing `niks3` and setting up post-build-hook (daemon mode only).
+*   `src/stages/store-snapshot.ts`: Captures pre-build store path snapshot (store-scan mode).
+*   `src/stages/push-diff.ts`: Computes store diff and pushes new paths (store-scan mode).
+*   `src/stages/push-inputs.ts`: Pushes flake inputs to the cache.
+*   `src/stages/refresher.ts`: OIDC token refresh daemon (daemon mode).
 *   `dist/index.js`: The compiled/bundled JavaScript file that GitHub Actions actually executes.
 
 ## Dependencies

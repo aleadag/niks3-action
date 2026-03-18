@@ -17,13 +17,17 @@ export const install = async () => {
   try {
     // Install niks3 from nixpkgs and get the store path
     let niks3StorePath = "";
-    await exec("nix", ["build", "--no-link", "--print-out-paths", "nixpkgs#niks3"], {
-      listeners: {
-        stdout: (data: Buffer) => {
-          niks3StorePath += data.toString().trim();
+    await exec(
+      "nix",
+      ["build", "--no-link", "--print-out-paths", "nixpkgs#niks3"],
+      {
+        listeners: {
+          stdout: (data: Buffer) => {
+            niks3StorePath += data.toString().trim();
+          },
         },
       },
-    });
+    );
 
     if (!niks3StorePath) {
       throw new Error("Failed to get niks3 store path");
@@ -34,11 +38,12 @@ export const install = async () => {
 
     core.info(`niks3 installed at ${niks3StorePath} and added to PATH`);
 
+    const useDaemon = core.getBooleanInput("use-daemon");
     const useOidc = core.getBooleanInput("use-oidc");
     const authToken = core.getInput("auth-token");
 
-    // --- Setup Refresher & Hook ---
-    if (useOidc || authToken) {
+    // --- Setup Refresher & Hook (daemon mode only) ---
+    if (useDaemon && (useOidc || authToken)) {
       core.info("Setting up post-build hook...");
 
       const endpoint = core.getInput("endpoint");
