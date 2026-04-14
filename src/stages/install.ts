@@ -5,7 +5,7 @@ import { exec } from "@actions/exec";
 
 export const isInstalled = async (): Promise<boolean> => {
   try {
-    await exec("which", ["niks3"], { silent: true });
+    await exec("niks3", ["--help"], { silent: true });
     return true;
   } catch {
     return false;
