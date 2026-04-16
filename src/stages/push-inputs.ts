@@ -1,7 +1,7 @@
+import { writeFile } from "node:fs/promises";
+import * as path from "node:path";
 import * as core from "@actions/core";
 import { exec } from "@actions/exec";
-import * as path from "node:path";
-import { writeFile } from "node:fs/promises";
 
 export const pushFlakeInputs = async () => {
   if (!core.getBooleanInput("push-flake-inputs")) {
@@ -68,7 +68,7 @@ export const pushFlakeInputs = async () => {
     }
 
     core.info(`Pushing ${paths.length} paths to ${endpoint}...`);
-    
+
     // niks3 push can take multiple paths
     await exec("niks3", [
       "push",

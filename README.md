@@ -25,6 +25,7 @@ A GitHub Action to setup [niks3](https://github.com/Mic92/niks3) and manage cach
 | `aws-secret-access-key` | AWS Secret Access Key for Nix S3 substituter. | No | N/A |
 | `max-concurrent-uploads` | Maximum concurrent uploads. | No | `30` |
 | `skip-push` | If `true`, disables pushing to the cache. | No | `false` |
+| `use-daemon` | Use post-build-hook with nix-daemon for pushing. Set to `false` for environments without systemd. | No | `true` |
 | `push-flake-inputs` | If `true`, pushes the current flake's inputs to the cache. | No | `false` |
 
 ### Examples
@@ -60,6 +61,26 @@ steps:
       use-oidc: true
 ```
 
+#### Without systemd (`use-daemon: false`)
+
+Self-hosted runners often run as containers that share the host's nix-daemon and lack their own systemd. In such environments, set `use-daemon: false` to use diff-based pushing instead of the post-build-hook.
+
+```yaml
+permissions:
+  id-token: write
+  contents: read
+
+steps:
+  - uses: actions/checkout@v4
+  - uses: aleadag/niks3-action@v0
+    with:
+      endpoint: "https://my-niks3-server.com"
+      use-oidc: true
+      use-daemon: false
+  - run: nix build .#mypackage
+  # New store paths are automatically pushed in the post phase
+```
+
 #### With AWS S3 Substituters
 
 If your cache uses S3 as a backend and requires credentials:
@@ -81,19 +102,26 @@ steps:
 
 ## How It Works
 
-The action sets up a **post-build-hook** in Nix to automatically upload derivations as they are built.
+The action supports two modes for pushing derivations to the cache.
 
-1.  **Installation:**
-    *   Builds and installs `niks3` from source.
-    *   Configures AWS credentials for Nix S3 substituters if provided.
-2.  **Authentication:**
-    *   If **OIDC** is enabled, it starts a background daemon (systemd service) that refreshes GitHub Actions OIDC tokens and writes them to a file accessible by the post-build-hook.
-    *   If an **auth-token** is provided, it writes the static token to the same file.
-3.  **Post-Build Hook:**
-    *   Configures Nix to use a custom shell script as a `post-build-hook`.
-    *   This script runs `niks3 push` for every path Nix builds, using the provided endpoint and authentication token.
-4.  **Flake Inputs (Optional):**
-    *   If `push-flake-inputs` is enabled, it runs `nix flake archive --json` and pushes all inputs to the cache immediately after installation.
+### Daemon mode (default, `use-daemon: true`)
+
+Sets up a post-build-hook in Nix to automatically upload derivations as they are built. Requires systemd (nix-daemon).
+
+1.  **Installation:** Builds and installs `niks3` from nixpkgs. Configures AWS credentials for Nix S3 substituters if provided.
+2.  **Authentication:** If OIDC is enabled, starts a background systemd service that refreshes GitHub Actions OIDC tokens. If an auth-token is provided, writes the static token to a file.
+3.  **Post-Build Hook:** Configures Nix to use a custom shell script as a `post-build-hook`. This script runs `niks3 push` for every path Nix builds.
+
+### Store-scan mode (`use-daemon: false`)
+
+For environments where systemd is not available.
+
+1.  **Pre-build snapshot:** Captures a snapshot of all store paths under `/nix/store` before the build starts.
+2.  **Post-build diff:** After the build, computes the difference between the snapshot and the current store paths, validates them with `nix path-info`, and pushes new paths in batches.
+
+### Common
+
+*   **Flake Inputs (Optional):** If `push-flake-inputs` is enabled, it runs `nix flake archive --json` and pushes all inputs to the cache immediately after installation.
 
 ## Development
 
